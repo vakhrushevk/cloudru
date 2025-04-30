@@ -3,7 +3,6 @@ package roundrobin
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -49,8 +48,8 @@ func (rb *Balancer) RegisterBackend(URL string) {
 	}
 	proxy := httputil.NewSingleHostReverseProxy(u)
 	backend := backend.NewBackend(u, true, proxy)
-	proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
-		rb.BalancerErrorHandler(w, err, backend)
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		rb.BalancerErrorHandler(w, r, err, backend)
 	}
 	rb.backends = append(rb.backends, backend)
 }
@@ -101,18 +100,30 @@ func (rb *Balancer) BalanceHandler() http.Handler {
 }
 
 // BalancerErrorHandler обрабатывает ошибки при перенаправлении запросов на backend
-func (rb *Balancer) BalancerErrorHandler(w http.ResponseWriter, err error, backend *backend.Backend) {
+func (rb *Balancer) BalancerErrorHandler(w http.ResponseWriter, r *http.Request, err error, backend *backend.Backend) {
 	slog.Error("Error redirecting request to backend", "backend", backend.URL.String(), "error", err)
 	backend.SetAlive(false)
-	slog.Info("Attempting to restore connection to backend", "backend", backend.URL.String())
-	retryErr := retry.WithRetry(rb.retryConfig, backend.IsBackendAlive)
-	if retryErr != nil {
-		slog.Error("Failed to restore connection to backend", "backend", backend.URL.String(), "error", retryErr)
-		http.Error(w, fmt.Sprintf("Backend %s is unavailable", backend.URL.Host), http.StatusServiceUnavailable)
+
+	go func() {
+		slog.Info("Attempting to restore connection to backend", "backend", backend.URL.String())
+		retryErr := retry.WithRetry(rb.retryConfig, backend.IsBackendAlive)
+		if retryErr == nil {
+			slog.Info("Connection to backend restored", "backend", backend.URL.String())
+			backend.SetAlive(true)
+		} else {
+			slog.Error("Failed to restore connection to backend", "backend", backend.URL.String(), "error", retryErr)
+			return
+		}
+	}()
+
+	alt := rb.nextPeer()
+	if alt != nil && alt != backend {
+		slog.Info("Switched to another backend", "backend", alt.URL.String())
+		alt.ReverseProxy.ServeHTTP(w, r)
 		return
 	}
-	slog.Info("Connection to backend restored", "backend", backend.URL.String())
-	backend.SetAlive(true)
+	slog.Warn("No other backends available")
+	http.Error(w, "No other backends available", http.StatusServiceUnavailable)
 }
 
 // healthCheck проверяет состояние бэкендов

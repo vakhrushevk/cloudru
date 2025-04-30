@@ -49,7 +49,7 @@ func main() {
 }
 
 func exampleBackends(cfg config.BalancerConfig) {
-	for i := 0; i < len(cfg.Backends); i++ {
+	for i := 0; i < len(cfg.Backends)-1; i++ {
 		m := http.NewServeMux()
 		m.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
