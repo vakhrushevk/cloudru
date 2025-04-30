@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/vakhrushevk/cloudru/internal/balancer"
 	"github.com/vakhrushevk/cloudru/internal/config"
+	"github.com/vakhrushevk/cloudru/pkg/logger"
 )
 
 func main() {
@@ -17,8 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatal("error loading config:", err)
 	}
-
-	// logger
+	logger.Init(&config.LoggerConfig)
 
 	b, err := balancer.New(config.BalancerConfig, config.RetryConfig)
 	if err != nil {
@@ -29,7 +30,6 @@ func main() {
 
 	go func() {
 		time.Sleep(2 * time.Second)
-		fmt.Println("Removing all backends")
 		// balancer.RemoveAllBackend()
 		// fmt.Println("All backends removed")
 		// time.Sleep(10 * time.Second)
@@ -60,7 +60,7 @@ func exampleBackends(cfg config.BalancerConfig) {
 			log.Printf("Failed to parse backend URL %s: %v", cfg.Backends[i].URL, err)
 			continue
 		}
-		log.Println("Starting backend", cfg.Backends[i].URL)
+		slog.Debug("Starting backend", "backend", cfg.Backends[i].URL)
 		go http.ListenAndServe(backendURL.Host, m)
 	}
 	time.Sleep(2 * time.Second)

@@ -4,7 +4,7 @@ package roundrobin
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -95,25 +95,23 @@ func (rb *Balancer) BalanceHandler() http.Handler {
 			peer.ReverseProxy.ServeHTTP(w, r)
 			return
 		}
-		log.Printf("No available backends")
+		slog.Warn("All backends are unavailable")
 		http.Error(w, "All backends are unavailable", http.StatusServiceUnavailable)
 	})
 }
 
 // BalancerErrorHandler обрабатывает ошибки при перенаправлении запросов на backend
 func (rb *Balancer) BalancerErrorHandler(w http.ResponseWriter, err error, backend *backend.Backend) {
-	log.Printf("Error redirecting request to backend %s: %v", backend.URL.String(), err)
+	slog.Error("Error redirecting request to backend", "backend", backend.URL.String(), "error", err)
 	backend.SetAlive(false)
-
-	log.Printf("Attempting to restore connection to backend %s", backend.URL.String())
+	slog.Info("Attempting to restore connection to backend", "backend", backend.URL.String())
 	retryErr := retry.WithRetry(rb.retryConfig, backend.IsBackendAlive)
 	if retryErr != nil {
-		log.Printf("Failed to restore connection to backend %s after retries: %v", backend.URL.String(), retryErr)
+		slog.Error("Failed to restore connection to backend", "backend", backend.URL.String(), "error", retryErr)
 		http.Error(w, fmt.Sprintf("Backend %s is unavailable", backend.URL.Host), http.StatusServiceUnavailable)
 		return
 	}
-
-	log.Printf("Connection to backend %s restored", backend.URL.String())
+	slog.Info("Connection to backend restored", "backend", backend.URL.String())
 	backend.SetAlive(true)
 }
 
@@ -123,17 +121,17 @@ func (rb *Balancer) healthCheck(ctx context.Context, delay time.Duration) {
 	for {
 		select {
 		case <-t.C:
-			log.Println("Starting health check...")
+			slog.Debug("Starting health check...")
 			for _, backend := range rb.backends {
 				err := backend.IsBackendAlive()
 				if err != nil {
+					slog.Error("Backend is unavailable", "backend", backend.URL, "error", err)
 					backend.SetAlive(false)
 				} else {
 					backend.SetAlive(true)
 				}
-				log.Printf("Backend %s [%v]\n", backend.URL, backend.IsAlive())
 			}
-			log.Println("Health check completed")
+			slog.Debug("Health check completed")
 		case <-ctx.Done():
 			return
 		}
@@ -144,7 +142,6 @@ func (rb *Balancer) healthCheck(ctx context.Context, delay time.Duration) {
 func (rb *Balancer) RemoveAllBackend() {
 	rb.mu.Lock()
 	defer rb.mu.Unlock()
-	fmt.Println("удаляем все серверры бекуенда")
 	rb.backends = make([]*backend.Backend, 0)
 	atomic.StoreUint64(&rb.current, 0)
 }

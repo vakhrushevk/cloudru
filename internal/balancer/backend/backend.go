@@ -3,7 +3,6 @@ package backend
 
 import (
 	"errors"
-	"log"
 	"net"
 	"net/http/httputil"
 	"net/url"
@@ -32,10 +31,8 @@ func NewBackend(url *url.URL, alive bool, proxy *httputil.ReverseProxy) *Backend
 // IsBackendAlive проверяет доступность backend
 func (b *Backend) IsBackendAlive() error {
 	timeout := 2 * time.Second
-	log.Printf("Checking availability of backend %s", b.URL.String())
 	conn, err := net.DialTimeout("tcp", b.URL.Host, timeout)
 	if err != nil {
-		log.Printf("Backend %s is unavailable, error: %v", b.URL.String(), err)
 		return errors.New("site is unavailable")
 	}
 	_ = conn.Close()

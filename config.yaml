@@ -8,6 +8,11 @@ balancer:
   backends_file: backends.yaml
   health_check_interval: 20s
 
+logger:
+  log_level: info # debug, info, warn, error
+  log_format: text # json, text
+  log_output: stdout # stdout, stderr, file
+
 retry:
   max_attempts: 3
   delay: 500ms

@@ -2,6 +2,7 @@
 package config
 
 import (
+	"io"
 	"os"
 	"time"
 
@@ -35,11 +36,43 @@ type BalancerConfig struct {
 	HealthCheckInterval time.Duration   `yaml:"health_check_interval"`
 }
 
+// LoggerConfig конфигурация логгера
+type LoggerConfig struct {
+	LogLevel  string `yaml:"log_level"`
+	LogFormat string `yaml:"log_format"`
+	LogOutput string `yaml:"log_output"`
+}
+
+func (l *LoggerConfig) Level() string {
+	return l.LogLevel
+}
+
+func (l *LoggerConfig) Format() string {
+	return l.LogFormat
+}
+
+func (l LoggerConfig) Output() io.Writer {
+	switch l.LogOutput {
+	case "stdout":
+		return os.Stdout
+	case "stderr":
+		return os.Stderr
+	default:
+		f, err := os.OpenFile(l.LogOutput, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			// Fallback to stdout on error
+			return os.Stdout
+		}
+		return f
+	}
+}
+
 // Config конфигурация приложения
 type Config struct {
 	HTTPConfig     HTTPConfig     `yaml:"http"`
 	RetryConfig    RetryConfig    `yaml:"retry"`
 	BalancerConfig BalancerConfig `yaml:"balancer"`
+	LoggerConfig   LoggerConfig   `yaml:"logger"`
 }
 
 // LoadConfig загружает конфигурацию из файла
