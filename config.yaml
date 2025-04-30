@@ -1,0 +1,13 @@
+http:
+  listen_port: 8080
+  read_timeout: 10
+  write_timeout: 10
+
+balancer:
+  strategy: round_robin # round_robin, random
+  backends_file: backends.yaml  # путь к файлу с бэкендами
+
+retry:
+  max_attempts: 3
+  delay: 500ms
+  max_delay: 3s
