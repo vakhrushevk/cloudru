@@ -5,11 +5,11 @@ http:
 
 balancer:
   strategy: round_robin # round_robin, random
-  backends_file: backends.yaml
+  backends_file: configs/backends.yaml
   health_check_interval: 60s
 
 logger:
-  log_level: info # debug, info, warn, error
+  log_level: debug # debug, info, warn, error
   log_format: text # json, text
   log_output: stdout # stdout, stderr, file
 

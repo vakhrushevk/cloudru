@@ -1,8 +1,7 @@
 package config
 
 import (
-	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -30,7 +29,7 @@ func NewWatcher(filepath string) (*Watcher, error) {
 // Close закрывает наблюдатель
 func (w *Watcher) Close() {
 	if err := w.watcher.Close(); err != nil {
-		log.Println("error closing watcher:", err)
+		slog.Error("error closing watcher", "error", err)
 	}
 }
 
@@ -44,11 +43,11 @@ func (w *Watcher) DoRun(fn func()) {
 					return
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					fmt.Println("modified file:", event.Name)
+					slog.Info("modified file", "file", event.Name)
 					fn()
 				}
 			case err := <-w.watcher.Errors:
-				log.Println("error:", err)
+				slog.Error("error", "error", err)
 			}
 		}
 	}()

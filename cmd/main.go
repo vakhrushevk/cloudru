@@ -10,12 +10,13 @@ import (
 
 	"github.com/vakhrushevk/cloudru/internal/balancer"
 	"github.com/vakhrushevk/cloudru/internal/config"
+	ratelimit "github.com/vakhrushevk/cloudru/internal/rateLimit"
 	"github.com/vakhrushevk/cloudru/pkg/logger"
 )
 
 func main() {
 
-	config, err := config.LoadConfig("config.yaml")
+	config, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
 		log.Fatal("error loading config:", err)
 	}
@@ -43,9 +44,14 @@ func main() {
 
 	go exampleBackends(config.BalancerConfig)
 
-	http.HandleFunc("/", b.BalanceHandler().ServeHTTP)
+	r := http.NewServeMux()
+	r.HandleFunc("/api/v1/rate-limit", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, World!"))
+	})
+	limiter := ratelimit.NewLimiter()
+	r.Handle("/", ratelimit.RateLimitMiddleware(limiter)(b.BalanceHandler()))
 	log.Println("Starting server on port", config.HTTPConfig.ListenPort)
-	log.Fatal(http.ListenAndServe(":"+config.HTTPConfig.ListenPort, nil))
+	log.Fatal(http.ListenAndServe(":"+config.HTTPConfig.ListenPort, r))
 }
 
 func exampleBackends(cfg config.BalancerConfig) {
