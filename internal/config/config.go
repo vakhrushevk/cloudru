@@ -51,13 +51,6 @@ func LoadConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	Watcher, err := NewWatcher(config.BackedsFile)
-	Watcher.DoRun(func() {
-		config.Backends, err = LoadBackends(config.BackedsFile)
-		if err != nil {
-			return
-		}
-	})
 
 	return &config, nil
 }
