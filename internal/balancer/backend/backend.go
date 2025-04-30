@@ -1,3 +1,4 @@
+//nolint:revive
 package backend
 
 import (
@@ -10,6 +11,7 @@ import (
 	"time"
 )
 
+// Backend структура backend
 type Backend struct {
 	URL          *url.URL
 	alive        bool
@@ -17,6 +19,7 @@ type Backend struct {
 	ReverseProxy *httputil.ReverseProxy
 }
 
+// NewBackend создает новый backend
 func NewBackend(url *url.URL, alive bool, proxy *httputil.ReverseProxy) *Backend {
 	return &Backend{
 		URL:          url,
@@ -26,7 +29,7 @@ func NewBackend(url *url.URL, alive bool, proxy *httputil.ReverseProxy) *Backend
 	}
 }
 
-// ISBackendAlive проверяет доступность backend
+// IsBackendAlive проверяет доступность backend
 func (b *Backend) IsBackendAlive() error {
 	timeout := 2 * time.Second
 	log.Printf("Checking availability of backend %s", b.URL.String())
@@ -39,14 +42,14 @@ func (b *Backend) IsBackendAlive() error {
 	return nil
 }
 
-// setAlive устанавливает доступность backend в alive true/false
+// SetAlive устанавливает доступность backend в alive true/false
 func (b *Backend) SetAlive(alive bool) {
 	b.rwmu.Lock()
 	b.alive = alive
 	b.rwmu.Unlock()
 }
 
-// isAlive возвращает состояние backend
+// IsAlive возвращает состояние backend
 func (b *Backend) IsAlive() bool {
 	b.rwmu.RLock()
 	defer b.rwmu.RUnlock()

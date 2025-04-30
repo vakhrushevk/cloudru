@@ -44,8 +44,8 @@ func main() {
 	go exampleBackends(config.BalancerConfig)
 
 	http.HandleFunc("/", b.BalanceHandler().ServeHTTP)
-	log.Println("Starting server on port", config.HttpConfig.ListenPort)
-	log.Fatal(http.ListenAndServe(":"+config.HttpConfig.ListenPort, nil))
+	log.Println("Starting server on port", config.HTTPConfig.ListenPort)
+	log.Fatal(http.ListenAndServe(":"+config.HTTPConfig.ListenPort, nil))
 }
 
 func exampleBackends(cfg config.BalancerConfig) {
@@ -55,12 +55,12 @@ func exampleBackends(cfg config.BalancerConfig) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Hello, World!" + fmt.Sprintf("from backend %d", i)))
 		}))
-		backendURL, err := url.Parse(cfg.Backends[i].Url)
+		backendURL, err := url.Parse(cfg.Backends[i].URL)
 		if err != nil {
-			log.Printf("Failed to parse backend URL %s: %v", cfg.Backends[i].Url, err)
+			log.Printf("Failed to parse backend URL %s: %v", cfg.Backends[i].URL, err)
 			continue
 		}
-		log.Println("Starting backend", cfg.Backends[i].Url)
+		log.Println("Starting backend", cfg.Backends[i].URL)
 		go http.ListenAndServe(backendURL.Host, m)
 	}
 	time.Sleep(2 * time.Second)

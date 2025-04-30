@@ -1,3 +1,4 @@
+//nolint:revive
 package balancer
 
 import (
@@ -9,15 +10,18 @@ import (
 )
 
 var (
+	// ErrBalancerStrategyNotFound ошибка балансировщика, если стратегия не найдена
 	ErrBalancerStrategyNotFound = errors.New("balancer strategy not found")
 )
 
+// Balancer интерфейс балансировщика
 type Balancer interface {
 	BalanceHandler() http.Handler
 	RemoveAllBackend()
 	RegisterBackend(URL string)
 }
 
+// New создает новый балансировщик
 func New(cfg config.BalancerConfig, retryConfig config.RetryConfig) (Balancer, error) {
 	switch cfg.Strategy {
 	case "round_robin":
@@ -29,16 +33,17 @@ func New(cfg config.BalancerConfig, retryConfig config.RetryConfig) (Balancer, e
 	}
 }
 
+// CheckAndUpdate проверяет и обновляет бэкенды
 func CheckAndUpdate(cfg config.Config, balancer Balancer) {
-	Watcher, err := config.NewWatcher(cfg.BackedsFile)
+	Watcher, err := config.NewWatcher(cfg.BalancerConfig.BackedsFile)
 	Watcher.DoRun(func() {
-		cfg.Backends, err = config.LoadBackends(cfg.BackedsFile)
+		cfg.BalancerConfig.Backends, err = config.LoadBackends(cfg.BalancerConfig.BackedsFile)
 		if err != nil {
 			return
 		}
 		balancer.RemoveAllBackend()
-		for _, b := range cfg.Backends {
-			balancer.RegisterBackend(b.Url)
+		for _, b := range cfg.BalancerConfig.Backends {
+			balancer.RegisterBackend(b.URL)
 		}
 	})
 }

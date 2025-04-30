@@ -5,7 +5,8 @@ http:
 
 balancer:
   strategy: round_robin # round_robin, random
-  backends_file: backends.yaml  # путь к файлу с бэкендами
+  backends_file: backends.yaml
+  health_check_interval: 20s
 
 retry:
   max_attempts: 3

@@ -1,3 +1,4 @@
+//nolint:revive
 package retry
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/vakhrushevk/cloudru/internal/config"
 )
 
+// WithRetry выполняет функцию fn с заданным количеством попыток и задержкой между попытками
 func WithRetry(config config.RetryConfig, fn func() error) error {
 	var err error
 	for attempt := 1; attempt <= config.MaxAttempts; attempt++ {
