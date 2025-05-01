@@ -15,6 +15,7 @@ import (
 	"github.com/vakhrushevk/cloudru/internal/config"
 )
 
+// пакет для эмитации нескольких бэкенд-серверов
 func main() {
 	cfg, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
