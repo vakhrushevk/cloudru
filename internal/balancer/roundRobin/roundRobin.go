@@ -25,7 +25,7 @@ type Balancer struct {
 }
 
 // New создает новый Balancer
-func New(balanceCofnig config.BalancerConfig, retryConfig config.RetryConfig) (*Balancer, error) {
+func New(ctx context.Context, balanceCofnig config.BalancerConfig, retryConfig config.RetryConfig) (*Balancer, error) {
 	rb := &Balancer{}
 	rb.retryConfig = retryConfig
 	rb.backends = make([]*backend.Backend, 0, len(balanceCofnig.Backends))
@@ -35,7 +35,7 @@ func New(balanceCofnig config.BalancerConfig, retryConfig config.RetryConfig) (*
 	}
 	rb.current = 0
 	rb.mu = sync.RWMutex{}
-	go rb.healthCheck(context.TODO(), balanceCofnig.HealthCheckInterval) // TODO: add to config
+	go rb.healthCheck(ctx, balanceCofnig.HealthCheckInterval)
 	return rb, nil
 }
 
@@ -43,7 +43,7 @@ func New(balanceCofnig config.BalancerConfig, retryConfig config.RetryConfig) (*
 func (rb *Balancer) RegisterBackend(URL string) {
 	u, err := url.Parse(URL)
 	if err != nil {
-		// TODO: ADD LOGGER
+		slog.Error("Failed to parse backend URL", "error", err)
 		return
 	}
 	proxy := httputil.NewSingleHostReverseProxy(u)

@@ -1,98 +1,89 @@
 package ratelimit
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/vakhrushevk/cloudru/internal/config"
+	"github.com/vakhrushevk/cloudru/internal/repository"
 )
 
-type Bucket struct {
-	Capacity   int
-	Tokens     int
-	RefilRate  int
-	LastRefill time.Time
-	Mutex      sync.Mutex
-}
-
-func (b *Bucket) refill() {
-	now := time.Now()
-	elapsed := now.Sub(b.LastRefill).Seconds()
-	added := int(elapsed * float64(b.RefilRate))
-	if added > 0 {
-		b.Tokens = min(b.Capacity, b.Tokens+added)
-		b.LastRefill = now
-	}
-}
-
 type Limiter struct {
-	mu       sync.RWMutex
-	buckets  map[string]*Bucket
-	capacity int
-	rate     int
+	mu           sync.RWMutex
+	bucketRepo   repository.BucketRepository
+	bucketConfig config.BucketConfig
 }
 
-func NewLimiter() *Limiter {
-	return &Limiter{
-		buckets:  make(map[string]*Bucket),
-		capacity: 10,
-		rate:     1,
+func NewLimiter(ctx context.Context, bucketRepo repository.BucketRepository, bucketConfig config.BucketConfig) *Limiter {
+	limiter := &Limiter{
+		bucketRepo:   bucketRepo,
+		bucketConfig: bucketConfig,
 	}
+
+	limiter.StartRefillBuckets(ctx)
+
+	return limiter
 }
 
-func (l *Limiter) getBucket(clientIP string) *Bucket {
-	l.mu.RLock()
-	b, ok := l.buckets[clientIP]
-	l.mu.RUnlock()
-	if ok {
-		return b
-	}
+func (l *Limiter) StartRefillBuckets(ctx context.Context) {
+	ticker := time.NewTicker(l.bucketConfig.RefilTime)
 
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	go func() {
+		defer ticker.Stop()
 
-	if b, ok = l.buckets[clientIP]; ok {
-		return b
-	}
-
-	b = &Bucket{
-		Tokens:     l.capacity,
-		LastRefill: time.Now(),
-		Capacity:   l.capacity,
-		RefilRate:  l.rate,
-	}
-	l.buckets[clientIP] = b
-
-	return b
+		for {
+			select {
+			case <-ctx.Done():
+				slog.Info("Stopping token refill")
+				return
+			case <-ticker.C:
+				slog.Debug("Refilling tokens for all buckets")
+				err := l.bucketRepo.RefillAllBuckets(ctx)
+				if err != nil {
+					slog.Error("Failed to refill buckets", "error", err)
+				}
+			}
+		}
+	}()
 }
 
-func (l *Limiter) Allow(clientIP string) bool {
-	b := l.getBucket(clientIP)
-	b.Mutex.Lock()
-	defer b.Mutex.Unlock()
+func (l *Limiter) Allow(ctx context.Context, clientIP string) bool {
+	b, err := l.bucketRepo.Bucket(ctx, clientIP)
+	if err == nil {
+		if b.Tokens > 0 {
+			l.bucketRepo.Decrease(ctx, clientIP)
+			return true
+		}
+		return false
+	}
 
-	b.refill()
-
-	if b.Tokens > 0 {
-		b.Tokens--
+	if err == repository.ErrBucketNotFound {
+		l.bucketRepo.CreateBucket(ctx, clientIP, l.bucketConfig.Capacity, l.bucketConfig.RefilRate, l.bucketConfig.Tokens)
+		l.bucketRepo.Decrease(ctx, clientIP)
 		return true
+	} else {
+		slog.Error("Failed to get bucket", "error", err)
+		return false
 	}
-
-	return false
 }
 
 func RateLimitMiddleware(limiter *Limiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			slog.Debug("Rate limit middleware", "remote_addr", r.RemoteAddr)
+
 			ip, _, err := net.SplitHostPort(r.RemoteAddr)
 			if err != nil {
 				http.Error(w, "Internal server error", http.StatusInternalServerError)
 				return
 			}
-			if !limiter.Allow(ip) {
+			slog.Debug("Rate limit middleware", "ip", ip)
+			if !limiter.Allow(context.TODO(), ip) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				json.NewEncoder(w).Encode(map[string]string{

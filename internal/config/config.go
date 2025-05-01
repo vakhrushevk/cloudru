@@ -9,11 +9,21 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// Config конфигурация приложения
+type Config struct {
+	HTTPConfig     HTTPConfig     `yaml:"http"`
+	RetryConfig    RetryConfig    `yaml:"retry"`
+	BalancerConfig BalancerConfig `yaml:"balancer"`
+	LoggerConfig   LoggerConfig   `yaml:"logger"`
+	BucketConfig   BucketConfig   `yaml:"bucket"`
+	RedisConfig    RedisConfig    `yaml:"redis"`
+}
+
 // HTTPConfig конфигурация HTTP сервера
 type HTTPConfig struct {
-	ListenPort   string `yaml:"listen_port"`
-	ReadTimeout  int    `yaml:"read_timeout"`
-	WriteTimeout int    `yaml:"write_timeout"`
+	ListenPort   int `yaml:"listen_port"`
+	ReadTimeout  int `yaml:"read_timeout"`
+	WriteTimeout int `yaml:"write_timeout"`
 }
 
 // RetryConfig конфигурация повторных попыток
@@ -23,17 +33,17 @@ type RetryConfig struct {
 	MaxDelay    time.Duration `yaml:"max_delay"`
 }
 
-// BackendConfig конфигурация бэкенда
-type BackendConfig struct {
-	URL string `yaml:"url"`
-}
-
 // BalancerConfig конфигурация балансировщика
 type BalancerConfig struct {
 	Strategy            string          `yaml:"strategy"`
 	BackedsFile         string          `yaml:"backends_file"`
 	Backends            []BackendConfig `yaml:"-"`
 	HealthCheckInterval time.Duration   `yaml:"health_check_interval"`
+}
+
+// BackendConfig конфигурация бэкенда
+type BackendConfig struct {
+	URL string `yaml:"url"`
 }
 
 // LoggerConfig конфигурация логгера
@@ -51,7 +61,7 @@ func (l *LoggerConfig) Format() string {
 	return l.LogFormat
 }
 
-func (l LoggerConfig) Output() io.Writer {
+func (l *LoggerConfig) Output() io.Writer {
 	switch l.LogOutput {
 	case "stdout":
 		return os.Stdout
@@ -67,12 +77,18 @@ func (l LoggerConfig) Output() io.Writer {
 	}
 }
 
-// Config конфигурация приложения
-type Config struct {
-	HTTPConfig     HTTPConfig     `yaml:"http"`
-	RetryConfig    RetryConfig    `yaml:"retry"`
-	BalancerConfig BalancerConfig `yaml:"balancer"`
-	LoggerConfig   LoggerConfig   `yaml:"logger"`
+// BucketConfig конфигурация бакета
+type BucketConfig struct {
+	Capacity  int           `yaml:"capacity"`   // default Максимальное количество токенов в бакете
+	RefilRate int           `yaml:"refil_rate"` // default Дефолтное время заполнения токенов для бакета
+	RefilTime time.Duration `yaml:"refil_time"` // Время через которое будет запущено заполнение токенов для бакета
+	Tokens    int           `yaml:"tokens"`     // default Количество токенов в бакете
+}
+
+type RedisConfig struct {
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 // LoadConfig загружает конфигурацию из файла

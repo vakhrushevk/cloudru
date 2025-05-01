@@ -2,6 +2,7 @@
 package balancer
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -22,10 +23,10 @@ type Balancer interface {
 }
 
 // New создает новый балансировщик
-func New(cfg config.BalancerConfig, retryConfig config.RetryConfig) (Balancer, error) {
+func New(ctx context.Context, cfg config.BalancerConfig, retryConfig config.RetryConfig) (Balancer, error) {
 	switch cfg.Strategy {
 	case "round_robin":
-		return roundrobin.New(cfg, retryConfig)
+		return roundrobin.New(ctx, cfg, retryConfig)
 	case "random":
 		panic("not implemented")
 	default:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"log/slog"
@@ -8,54 +9,22 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/vakhrushevk/cloudru/internal/balancer"
+	"github.com/vakhrushevk/cloudru/internal/app"
 	"github.com/vakhrushevk/cloudru/internal/config"
-	ratelimit "github.com/vakhrushevk/cloudru/internal/rateLimit"
-	"github.com/vakhrushevk/cloudru/pkg/logger"
 )
 
 func main() {
+	app, err := app.NewApp(context.Background(), "configs/config.yaml")
 
-	config, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
-		log.Fatal("error loading config:", err)
-	}
-	logger.Init(&config.LoggerConfig)
-
-	b, err := balancer.New(config.BalancerConfig, config.RetryConfig)
-	if err != nil {
-		log.Fatalf("failed to create balancer: %v", err)
+		log.Fatal("error creating app:", err)
 	}
 
-	balancer.CheckAndUpdate(*config, b)
-
-	go func() {
-		time.Sleep(2 * time.Second)
-		// balancer.RemoveAllBackend()
-		// fmt.Println("All backends removed")
-		// time.Sleep(10 * time.Second)
-		// fmt.Println("Adding  backends")
-		// balancer.RegisterBackend("http://localhost:8001")
-		// balancer.RegisterBackend("http://localhost:8002")
-		// balancer.RegisterBackend("http://localhost:8003")
-		// balancer.RegisterBackend("http://localhost:8004")
-		// fmt.Println("All backends added")
-	}()
-
-	go exampleBackends(config.BalancerConfig)
-
-	r := http.NewServeMux()
-	r.HandleFunc("/api/v1/rate-limit", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello, World!"))
-	})
-	limiter := ratelimit.NewLimiter()
-	r.Handle("/", ratelimit.RateLimitMiddleware(limiter)(b.BalanceHandler()))
-	log.Println("Starting server on port", config.HTTPConfig.ListenPort)
-	log.Fatal(http.ListenAndServe(":"+config.HTTPConfig.ListenPort, r))
+	log.Fatal(app.Start())
 }
 
 func exampleBackends(cfg config.BalancerConfig) {
-	for i := 0; i < len(cfg.Backends)-1; i++ {
+	for i := 0; i < len(cfg.Backends); i++ {
 		m := http.NewServeMux()
 		m.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
