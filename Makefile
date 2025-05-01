@@ -1,7 +1,10 @@
 LOCAL_BIN:=$(CURDIR)/bin
 
+build:
+	go build -o $(LOCAL_BIN)/main ./cmd/main/main.go
+
 run:
-	go run cmd/main.go
+	go run ./cmd/main/main.go
 
 docker-build:
 	docker-compose build
@@ -12,10 +15,10 @@ docker-rebuild:
 
 docker-logs:
 	docker-compose logs -f
-docker-logs-app:
-	docker-compose logs -f app
-
-
+docker-logs-main:
+	docker-compose logs -f main
+docker-logs-backend:
+	docker-compose logs -f backend
 
 lint:
 	golangci-lint run ./... --config .golangci.yaml

@@ -1,0 +1,10 @@
+LOCAL_BIN := $(CURDIR)/bin
+
+.PHONY: build
+build:
+	mkdir -p $(LOCAL_BIN)
+	go build -o $(LOCAL_BIN)/backend cmd/backends/main.go
+
+.PHONY: run
+run:
+	go run cmd/backends/main.go 

@@ -188,29 +188,35 @@ func (r *BucketRepository) Decrease(_ context.Context, key string) (bool, error)
 func (r *BucketRepository) Bucket(_ context.Context, key string) (*model.Bucket, error) {
 	result, err := r.client.HGetAll(bucketKey(key)).Result()
 	if err != nil {
+		slog.Debug("Failed to get bucket", "error", err)
 		return nil, fmt.Errorf("failed to get bucket: %w", err)
 	}
 	if len(result) == 0 {
+		slog.Debug("Bucket not found", "key", key)
 		return nil, ErrBucketNotFound
 	}
 
 	tokens, err := strconv.Atoi(result["tokens"])
 	if err != nil {
+		slog.Debug("Failed to convert tokens to int", "error", err)
 		return nil, err
 	}
 
 	capacity, err := strconv.Atoi(result["capacity"])
 	if err != nil {
+		slog.Debug("Failed to convert capacity to int", "error", err)
 		return nil, err
 	}
 
 	refilRate, err := strconv.Atoi(result["refil_rate"])
 	if err != nil {
+		slog.Debug("Failed to convert refil_rate to int", "error", err)
 		return nil, err
 	}
 
 	lastRefill, err := strconv.ParseInt(result["last_refill"], 10, 64)
 	if err != nil {
+		slog.Debug("Failed to convert last_refill to int", "error", err)
 		return nil, err
 	}
 

@@ -58,32 +58,35 @@ func (l *Limiter) StartRefillBuckets(ctx context.Context) {
 func (l *Limiter) Allow(ctx context.Context, clientIP string) bool {
 	b, err := l.bucketRepo.Bucket(ctx, clientIP)
 	if err == nil {
-		if b.Tokens > 0 {
-			ok, err := l.bucketRepo.Decrease(ctx, clientIP)
-			if err != nil || !ok {
-				return false
-			}
-			return true
-		}
-		return false
-	}
-
-	if err == repository.ErrBucketNotFound {
-		err := l.bucketRepo.CreateBucket(ctx, clientIP, l.bucketConfig.Capacity, l.bucketConfig.RefilRate, l.bucketConfig.Tokens)
-		if err != nil {
-			slog.Error("Failed to create bucket", "error", err)
+		if b.Tokens <= 0 {
+			slog.Debug("No tokens available", "ip", clientIP)
 			return false
 		}
 		ok, err := l.bucketRepo.Decrease(ctx, clientIP)
-		if err != nil || !ok {
+		if err != nil {
+			slog.Error("Failed to decrease tokens", "ip", clientIP, "error", err)
+			return false
+		}
+		if !ok {
+			slog.Debug("Failed to decrease tokens", "ip", clientIP)
 			return false
 		}
 		return true
 	}
 
-	slog.Error("Failed to get bucket", "error", err)
-	return false
+	if err.Error() != repository.ErrBucketNotFound.Error() {
+		slog.Error("Failed to get bucket", "ip", clientIP, "error", err)
+		return false
+	}
 
+	slog.Debug("Creating new bucket", "ip", clientIP)
+	err = l.bucketRepo.CreateBucket(ctx, clientIP, l.bucketConfig.Capacity, l.bucketConfig.RefilRate, l.bucketConfig.Tokens-1)
+	if err != nil {
+		slog.Error("Failed to create bucket", "ip", clientIP, "error", err)
+		return false
+	}
+
+	return true
 }
 
 // Middleware middleware для ограничения количества запросов
@@ -94,11 +97,12 @@ func Middleware(limiter *Limiter) func(http.Handler) http.Handler {
 
 			ip, _, err := net.SplitHostPort(r.RemoteAddr)
 			if err != nil {
+				slog.Error("Failed to parse remote address", "error", err)
 				http.Error(w, "Internal server error", http.StatusInternalServerError)
 				return
 			}
-			slog.Debug("Rate limit middleware", "ip", ip)
-			if !limiter.Allow(context.TODO(), ip) {
+
+			if !limiter.Allow(r.Context(), ip) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				json.NewEncoder(w).Encode(map[string]string{
@@ -107,6 +111,7 @@ func Middleware(limiter *Limiter) func(http.Handler) http.Handler {
 				})
 				return
 			}
+
 			next.ServeHTTP(w, r)
 		})
 	}

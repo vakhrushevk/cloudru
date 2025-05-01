@@ -24,9 +24,15 @@ func Init(config ConfigLogger) *slog.Logger {
 	var handler slog.Handler
 	switch strings.ToLower(config.Format()) {
 	case "text":
-		handler = slog.NewTextHandler(config.Output(), &slog.HandlerOptions{Level: level})
+		handler = slog.NewTextHandler(config.Output(), &slog.HandlerOptions{
+			Level:     level,
+			AddSource: level == slog.LevelDebug,
+		})
 	default:
-		handler = slog.NewJSONHandler(config.Output(), &slog.HandlerOptions{Level: level})
+		handler = slog.NewJSONHandler(config.Output(), &slog.HandlerOptions{
+			Level:     level,
+			AddSource: level == slog.LevelDebug,
+		})
 	}
 
 	logger := slog.New(handler)

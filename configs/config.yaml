@@ -1,16 +1,16 @@
 http:
-  listen_port: 8082 # порт на котором будет запущен сервер
+  listen_port: 8080 # порт на котором будет запущен сервер
   read_timeout: 10 # время ожидания запроса
   write_timeout: 10 # время ожидания ответа
 
 balancer:
   strategy: round_robin # round_robin, random
   backends_file: configs/backends.yaml # путь к файлу с бэкендами
-  health_check_interval: 60s # время между проверками состояния бэкендов
+  health_check_interval: 10s # время между проверками состояния бэкендов
 
 logger:
-  log_level: info # debug, info, warn, error
-  log_format: json # json, text
+  log_level: debug # debug, info, warn, error
+  log_format: text # json, text
   log_output: stdout # stdout, stderr, file
 
 retry:
@@ -19,9 +19,9 @@ retry:
   max_delay: 3s # максимальная задержка
 
 bucket: # default values
-  capacity: 100 # максимальное количество токенов в бакете
+  capacity: 10 # максимальное количество токенов в бакете
   refil_rate: 1 # количество токенов которые будут добавлены в бакет за refil_time
-  tokens: 0 # Начальное Количество токенов в бакете
+  tokens: 1 # Начальное Количество токенов в бакете
   refil_time: 1s #Время через которое будет запущено заполнение токенов для бакета
 
 redis:
