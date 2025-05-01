@@ -33,9 +33,12 @@ func New(ctx context.Context, balanceCofnig config.BalancerConfig, retryConfig c
 	for _, b := range balanceCofnig.Backends {
 		rb.RegisterBackend(b.URL)
 	}
+
 	rb.current = 0
 	rb.mu = sync.RWMutex{}
+
 	go rb.healthCheck(ctx, balanceCofnig.HealthCheckInterval)
+
 	return rb, nil
 }
 

@@ -1,3 +1,4 @@
+// Package repository предоставляет интерфейс для работы с бакетами
 package repository
 
 import (
@@ -8,9 +9,11 @@ import (
 )
 
 var (
+	// ErrBucketNotFound ошибка, если бакет не найден
 	ErrBucketNotFound = errors.New("bucket not found")
 )
 
+// BucketRepository интерфейс для работы с бакетами
 type BucketRepository interface {
 	CreateBucket(ctx context.Context, key string, capacity int, refilRate int, tokens int) error
 	Bucket(ctx context.Context, key string) (*model.Bucket, error)

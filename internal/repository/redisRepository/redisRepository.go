@@ -1,3 +1,4 @@
+// Package redisRepository предоставляет реализацию интерфейса BucketRepository для работы с бакетами в Redis.
 package redisRepository
 
 import (
@@ -14,14 +15,18 @@ import (
 )
 
 var (
+	// ErrRedisClientNil ошибка, если redis клиент не инициализирован
 	ErrRedisClientNil = errors.New("redis client is nil")
+	// ErrBucketNotFound ошибка, если бакет не найден
 	ErrBucketNotFound = errors.New("bucket not found")
 )
 
+// BucketRepository интерфейс для работы с бакетами
 type BucketRepository struct {
 	client *redis.Client
 }
 
+// NewRedisRepository создает новый репозиторий для работы с бакетами
 func NewRedisRepository(redis *redis.Client) (repository.BucketRepository, error) {
 	if redis == nil {
 		return nil, ErrRedisClientNil
@@ -35,7 +40,8 @@ func bucketKey(key string) string {
 	return fmt.Sprintf("ratelimit:bucket:%s", key)
 }
 
-func (r *BucketRepository) CreateBucket(ctx context.Context, key string, capacity int, refilRate int, tokens int) error {
+// CreateBucket создает новый бакет
+func (r *BucketRepository) CreateBucket(_ context.Context, key string, capacity int, refilRate int, tokens int) error {
 	now := time.Now()
 
 	bucket := map[string]interface{}{
@@ -56,6 +62,7 @@ func (r *BucketRepository) CreateBucket(ctx context.Context, key string, capacit
 	return nil
 }
 
+// RefillAllBuckets пополняет все бакеты токенами
 func (r *BucketRepository) RefillAllBuckets(ctx context.Context) error {
 	var cursor uint64
 	now := time.Now().Unix()
@@ -123,7 +130,8 @@ func (r *BucketRepository) RefillAllBuckets(ctx context.Context) error {
 	return nil
 }
 
-func (r *BucketRepository) Decrease(ctx context.Context, key string) (bool, error) {
+// Decrease уменьшает количество токенов в бакете
+func (r *BucketRepository) Decrease(_ context.Context, key string) (bool, error) {
 	script := `
         local data = redis.call('HMGET', KEYS[1], 'tokens', 'last_refill', 'capacity', 'refil_rate')
         if not data[1] then
@@ -161,7 +169,6 @@ func (r *BucketRepository) Decrease(ctx context.Context, key string) (bool, erro
 		return false, fmt.Errorf("failed to decrease tokens: %w", err)
 	}
 
-	// Изменена обработка результата
 	switch v := result.(type) {
 	case int64:
 		return v == 1, nil
@@ -177,7 +184,8 @@ func (r *BucketRepository) Decrease(ctx context.Context, key string) (bool, erro
 	}
 }
 
-func (r *BucketRepository) Bucket(ctx context.Context, key string) (*model.Bucket, error) {
+// Bucket возвращает бакет по ключу
+func (r *BucketRepository) Bucket(_ context.Context, key string) (*model.Bucket, error) {
 	result, err := r.client.HGetAll(bucketKey(key)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bucket: %w", err)

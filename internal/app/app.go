@@ -11,21 +11,27 @@ import (
 
 var globalConfigPath string
 
+// App структура приложения
 type App struct {
 	serviceProvider *serviceProvider
 	httpServer      *http.Server
 }
 
+// NewApp создает новый App
 func NewApp(ctx context.Context, configPath string) (*App, error) {
 	a := &App{}
 	globalConfigPath = configPath
-	a.initDeps(ctx)
+	err := a.initDeps(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return a, nil
 }
 
+// initServiceProvider инициализирует serviceProvider
 func (a *App) initServiceProvider(ctx context.Context) error {
-	serviceProvider, err := NewServiceProvider(ctx)
+	serviceProvider, err := newServiceProvider(ctx)
 	if err != nil {
 		return err
 	}
@@ -33,12 +39,10 @@ func (a *App) initServiceProvider(ctx context.Context) error {
 	return nil
 }
 
+// initHttpServer инициализирует http сервер
 func (a *App) initHttpServer(ctx context.Context) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/rate-limit", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello, World!"))
-	})
-	mux.Handle("/", ratelimit.RateLimitMiddleware(
+	mux.Handle("/", ratelimit.Middleware(
 		a.serviceProvider.Limiter(ctx))(
 		a.serviceProvider.Balancer(ctx).BalanceHandler()))
 
@@ -51,6 +55,7 @@ func (a *App) initHttpServer(ctx context.Context) error {
 	return nil
 }
 
+// initDeps инициализирует зависимости
 func (a *App) initDeps(ctx context.Context) error {
 	inits := []func(context.Context) error{
 		a.initServiceProvider,
@@ -67,48 +72,8 @@ func (a *App) initDeps(ctx context.Context) error {
 	return nil
 }
 
+// Start запускает сервер
 func (a *App) Start() error {
 	slog.Info("Starting server on port", "port", a.serviceProvider.Config().HTTPConfig.ListenPort)
 	return a.httpServer.ListenAndServe()
 }
-
-// redisClient := redis.NewClient(&redis.Options{
-// 	Addr:     fmt.Sprintf("%s:%d", config.RedisConfig.Host, config.RedisConfig.Port),
-// 	Password: config.RedisConfig.Password,
-// 	DB:       config.RedisConfig.DB,
-// })
-// redisRepo, err := redisRepository.NewRedisRepository(redisClient)
-// if err != nil {
-// 	log.Fatal("error creating redis repository:", err)
-// }
-// limiter := ratelimit.NewLimiter(redisRepo, config.BucketConfig)
-
-// b, err := balancer.New(config.BalancerConfig, config.RetryConfig)
-// if err != nil {
-// 	log.Fatalf("failed to create balancer: %v", err)
-// }
-
-// balancer.CheckAndUpdate(*config, b)
-
-// go func() {
-// 	time.Sleep(2 * time.Second)
-// 	// balancer.RemoveAllBackend()
-// 	// fmt.Println("All backends removed")
-// 	// time.Sleep(10 * time.Second)
-// 	// fmt.Println("Adding  backends")
-// 	// balancer.RegisterBackend("http://localhost:8001")
-// 	// balancer.RegisterBackend("http://localhost:8002")
-// 	// balancer.RegisterBackend("http://localhost:8003")
-// 	// balancer.RegisterBackend("http://localhost:8004")
-// 	// fmt.Println("All backends added")
-// }()
-
-// go exampleBackends(config.BalancerConfig)
-
-// r := http.NewServeMux()
-// r.HandleFunc("/api/v1/rate-limit", func(w http.ResponseWriter, r *http.Request) {
-// 	w.Write([]byte("Hello, World!"))
-// })
-// r.Handle("/", ratelimit.RateLimitMiddleware(limiter)(b.BalanceHandler()))
-// log.Println("Starting server on port", config.HTTPConfig.ListenPort)
-// log.Fatal(http.ListenAndServe(":"+config.HTTPConfig.ListenPort, r))

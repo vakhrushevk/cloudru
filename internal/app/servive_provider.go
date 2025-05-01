@@ -2,9 +2,7 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"net/http"
 
 	"github.com/go-redis/redis"
 	"github.com/vakhrushevk/cloudru/internal/balancer"
@@ -20,19 +18,22 @@ type serviceProvider struct {
 	limiter          *ratelimit.Limiter
 	balancer         balancer.Balancer
 	bucketRepository repository.BucketRepository
-	server           *http.Server
 	config           *config.Config
 }
 
-func NewServiceProvider(ctx context.Context) (*serviceProvider, error) {
+// NewServiceProvider создает новый сервис-провайдер
+func newServiceProvider(_ context.Context) (*serviceProvider, error) {
 	s := &serviceProvider{}
 	s.InitLogger()
 	return s, nil
 }
+
+// InitLogger инициализирует логгер
 func (s *serviceProvider) InitLogger() {
 	logger.Init(&s.Config().LoggerConfig)
 }
 
+// Config возвращает конфигурацию или загружает ее
 func (s *serviceProvider) Config() *config.Config {
 	if s.config == nil {
 		cfg, err := config.LoadConfig(globalConfigPath)
@@ -45,10 +46,11 @@ func (s *serviceProvider) Config() *config.Config {
 	return s.config
 }
 
-func (s *serviceProvider) RedisClient(ctx context.Context) *redis.Client {
+// RedisClient создает новый клиент Redis или возвращает существующий
+func (s *serviceProvider) RedisClient(_ context.Context) *redis.Client {
 	if s.redisClient == nil {
 		s.redisClient = redis.NewClient(&redis.Options{
-			Addr:     fmt.Sprintf("%s", s.Config().RedisConfig.Addr),
+			Addr:     s.Config().RedisConfig.Addr,
 			Password: s.Config().RedisConfig.Password,
 			DB:       s.Config().RedisConfig.DB,
 		})
@@ -61,6 +63,7 @@ func (s *serviceProvider) RedisClient(ctx context.Context) *redis.Client {
 	return s.redisClient
 }
 
+// BucketRepository создает новый репозиторий бакетов или возвращает существующий
 func (s *serviceProvider) BucketRepository(ctx context.Context) repository.BucketRepository {
 	if s.bucketRepository == nil {
 		bucketRepo, err := redisRepository.NewRedisRepository(s.RedisClient(ctx))
@@ -73,6 +76,7 @@ func (s *serviceProvider) BucketRepository(ctx context.Context) repository.Bucke
 	return s.bucketRepository
 }
 
+// Limiter создает новый лимитер или возвращает существующий
 func (s *serviceProvider) Limiter(ctx context.Context) *ratelimit.Limiter {
 	if s.limiter == nil {
 		s.limiter = ratelimit.NewLimiter(ctx, s.BucketRepository(ctx), s.Config().BucketConfig)
@@ -80,6 +84,7 @@ func (s *serviceProvider) Limiter(ctx context.Context) *ratelimit.Limiter {
 	return s.limiter
 }
 
+// Balancer создает новый балансер или возвращает существующий
 func (s *serviceProvider) Balancer(ctx context.Context) balancer.Balancer {
 	if s.balancer == nil {
 		balance, err := balancer.New(ctx, s.Config().BalancerConfig, s.Config().RetryConfig)

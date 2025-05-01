@@ -16,8 +16,6 @@ docker-logs-app:
 	docker-compose logs -f app
 
 
-install-lint:
-	GOBIN=$(LOCAL_BIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
 
 lint:
-	$(LOCAL_BIN)/golangci-lint run ./... --config .golangci.yaml
+	golangci-lint run ./... --config .golangci.yaml
