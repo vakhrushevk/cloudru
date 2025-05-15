@@ -26,6 +26,7 @@
 ```bash
 make docker-up:
 или docker-compose up -d
+```
 
 ### Пример работы сервиса
 ![Alt Text](/doc/ezgif-5d07fc2fbac19e.gif)
